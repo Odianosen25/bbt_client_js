@@ -89,8 +89,11 @@ BBT = function(key_id, options) {
   BBT.instances.push(this);
 
   this.connection = new BBT.Connection(this);
-  this.connect();
 
+  if (options.auto_connect === true) {
+    this.connect();
+  }
+  
 }
 
 /*** Constant Values ***/
@@ -181,6 +184,8 @@ BBT.prototype.updateParams = function(params) {
   if(params.port) this.port = params.port;
   if(params.sport) this.sport = params.sport;
   if(params.ssl === false) this.ssl = params.ssl; //set to false
+  if(params.on_connect) this.on_connect = params.on_connect;
+  if(params.on_disconnect) this.on_disconnect = params.on_disconnect;
 
   if(params.cipher) this.cipher = params.cipher;
 }
@@ -204,8 +209,21 @@ BBT.Connection = function(bbt) {
 }
 
 BBT.Connection.prototype.onConnection = function() {
+  if (this.bbt.on_connect) {
+    this.bbt.on_connect();
+    return
+  }
   for(c in this.channels.channels) {
     this.channels.channels[c].do_subscribe();
+  }
+}
+
+BBT.Connection.prototype.onDisonnection = function() {
+  BBT.warn("Connetion has been Dropped");
+
+  if (this.bbt.on_disconnect) {
+    this.bbt.on_disconnect();
+    return
   }
 }
 
@@ -219,6 +237,7 @@ BBT.Connection.prototype.connect = function () {
   });
 
   this.connection.on('disconnect', function () {
+    self.onDisonnection();
   });
 
   this.connection.on('message', function (msg) {
@@ -270,7 +289,6 @@ BBT.Connection.prototype.subscribe = function(args, callback) {
   }
 }
 
-
 BBT.Connection.prototype.unsubscribe = function(args) {
   var Channel = this.channels.get(args.channel, args.resource);
   if(Channel) {
@@ -282,10 +300,14 @@ BBT.Connection.prototype.unsubscribe = function(args) {
 
 BBT.Connection.prototype.publish = function(args) {
   var Channel = this.channels.getChannelWithPermission(args.channel, args.resource, false, true);
+  console.log(Channel);
+  console.log(args.channel);
+  console.log(args.resource);
+  console.log(args.data);
 
   if(Channel && Channel.hasWritePermission()) {
     if(this.send('stream', 'emit', {channel: args.channel, resource: args.resource, data: args.data})) {
-      return args.callback(null, {code: 0});
+      return args.callback({code: 0});
     }else {
       return args.callback({code: 11, message: 'Error while publishing message!'});
     }
@@ -298,7 +320,7 @@ BBT.Connection.prototype.write = function(args) {
 
   if(Channel && Channel.hasWritePermission()) {
     if(this.send('stream', 'write', {channel: args.channel, resource: args.resource, data: args.data})) {
-      return args.callback(null, {code: 0});
+      return args.callback({code: 0});
     }else {
       return args.callback({code: 11, message: 'Error while writing message!'});
     }
@@ -372,6 +394,7 @@ BBT.Channel = function(args, fct, bbt) {
   this.subscribed = false;
   this.write = args.write || false;
   this.read = args.read || false;
+  this.is_public = args.is_public || false;
   this.writePermission = false;
   this.readPermission = false;
   this.onError = args.onError;
@@ -403,15 +426,22 @@ BBT.Channel.prototype.update = function(args) {
 
 //Authentication required for write access and for read access to private or presence resources
 BBT.Channel.prototype.authNeeded = function() {
-  if(this.write === true) return true;
-  if(this.channel.indexOf('private-') === 0) return true;
-  if(this.channel.indexOf('presence-') === 0) return true;
+  if(!this.is_public) {
+    if(this.write === true) return true;
+    if(this.channel.indexOf('private-') === 0) return true;
+    if(this.channel.indexOf('presence-') === 0) return true;
+  }
+
   return false;
 }
 
 BBT.Channel.prototype.do_subscribe = function() {
   var self = this;
-  if(!self.bbt.connection.connection.connected) return;
+  if(!self.bbt.connection.connection.connected) {
+    BBT.warn("Cannot subscribe as not connected");
+    return;
+  }
+  
   var connection = this.bbt.connection;
 
   var args = {};
@@ -540,7 +570,7 @@ BBT.Channel.prototype.hasReadPermission = function() {
 }
 
 function checkAppKey(key) {
-  if (key === null || key === undefined) {
+  if (key === null || key === undefined || key === "") {
     BBT.warn(
       'Warning: You must pass your key id when you instantiate BBT.'
     );
@@ -666,6 +696,7 @@ BBT.prototype.subscribe = function(args, callback) {
   vargs.write = args.write === true; // default false
   vargs.onError = args.onError || BBT.warn;
   vargs.onSuccess = args.onSuccess || function() {};
+  vargs.is_public = args.is_public || false;
   var onError = vargs.onError;
 
   if(!vargs.channel) return onError('channel not specified');
