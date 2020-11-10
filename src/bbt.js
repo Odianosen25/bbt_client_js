@@ -300,11 +300,7 @@ BBT.Connection.prototype.unsubscribe = function(args) {
 
 BBT.Connection.prototype.publish = function(args) {
   var Channel = this.channels.getChannelWithPermission(args.channel, args.resource, false, true);
-  console.log(Channel);
-  console.log(args.channel);
-  console.log(args.resource);
-  console.log(args.data);
-
+  
   if(Channel && Channel.hasWritePermission()) {
     if(this.send('stream', 'emit', {channel: args.channel, resource: args.resource, data: args.data})) {
       return args.callback({code: 0});
