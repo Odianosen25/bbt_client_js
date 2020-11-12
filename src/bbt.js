@@ -314,7 +314,7 @@ BBT.Connection.prototype.publish = function(args) {
 BBT.Connection.prototype.write = function(args) {
   var Channel = this.channels.getChannelWithPermission(args.channel, args.resource, false, true);
 
-  if(!Channel || Channel.hasWritePermission()) {
+  if(Channel && Channel.hasWritePermission()) {
     if(this.send('stream', 'write', {channel: args.channel, resource: args.resource, data: args.data})) {
       return args.callback({code: 0});
     } else {
