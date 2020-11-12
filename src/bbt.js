@@ -231,7 +231,7 @@ BBT.Connection.prototype.connect = function () {
   if( this.connection && this.connection.connected ) return this;
   var self = this;
   var query =  'key=' + this.bbt.key + '&username=' + (self.bbt.userinfo.username || '');
-  this.connection = io(self.bbt.getWsUrl(), {query: query });
+  this.connection = io(self.bbt.getWsUrl(), {query: query});
   this.connection.on('connect', function () {
     self.onConnection();
   });
@@ -300,11 +300,11 @@ BBT.Connection.prototype.unsubscribe = function(args) {
 
 BBT.Connection.prototype.publish = function(args) {
   var Channel = this.channels.getChannelWithPermission(args.channel, args.resource, false, true);
-  
+
   if(Channel && Channel.hasWritePermission()) {
     if(this.send('stream', 'emit', {channel: args.channel, resource: args.resource, data: args.data})) {
       return args.callback({code: 0});
-    }else {
+    } else {
       return args.callback({code: 11, message: 'Error while publishing message!'});
     }
   }
@@ -314,10 +314,10 @@ BBT.Connection.prototype.publish = function(args) {
 BBT.Connection.prototype.write = function(args) {
   var Channel = this.channels.getChannelWithPermission(args.channel, args.resource, false, true);
 
-  if(Channel && Channel.hasWritePermission()) {
+  if(!Channel || Channel.hasWritePermission()) {
     if(this.send('stream', 'write', {channel: args.channel, resource: args.resource, data: args.data})) {
       return args.callback({code: 0});
-    }else {
+    } else {
       return args.callback({code: 11, message: 'Error while writing message!'});
     }
   }
@@ -371,7 +371,7 @@ BBT.Channels.prototype.getChannelWithPermission = function(channel, resource, re
     if(read) match = Channel.hasReadPermission();
     if(write) match = Channel.hasWritePermission();
     if(match) return Channel;
-  }else if(Channel = this.channels[channel + '.*']) {
+  } else if (Channel = this.channels[channel + '.*']) {
     match = true;
     if(read) match = Channel.hasReadPermission();
     if(write) match = Channel.hasWritePermission();
@@ -455,8 +455,8 @@ BBT.Channel.prototype.do_subscribe = function() {
     if(connection.connection && connection.connection.connected && connection.connection.io.engine.id) {
       args.sid = connection.connection.io.engine.id;
       if(connection.bbt.auth_method === 'get') {
-        $.get( connection.bbt.auth_endpoint, args )
-        .success(function( data ) {
+        $.getJSON( connection.bbt.auth_endpoint, args) 
+        .done(function(data, status) {
           if(!data.auth) {
             return self.onError('Bad authentication reply');
           }
@@ -470,7 +470,7 @@ BBT.Channel.prototype.do_subscribe = function() {
             return false;
           }
         })
-        .error(function(XMLHttpRequest, textStatus, errorThrown) {
+        .fail(function(XMLHttpRequest, textStatus, errorThrown) {
           return self.onError('Unable to authenticate client');
         });
       }else if (connection.bbt.auth_method === 'post') {
@@ -508,7 +508,7 @@ BBT.Channel.prototype.do_subscribe = function() {
     } else {
       return self.onError('Connection error encountered');
     }
-  }else {
+  } else {
     if(connection.send('control', 'subscribe', args)) {
       self.subscribe();
       self.onSuccess('Successfully subscribed to ' + self.channel + '.' + self.resource);
@@ -691,7 +691,7 @@ BBT.prototype.subscribe = function(args, callback) {
   vargs.read = (typeof args.read === 'undefined' ) ? true : args.read === true; //default true
   vargs.write = args.write === true; // default false
   vargs.onError = args.onError || BBT.warn;
-  vargs.onSuccess = args.onSuccess || function() {};
+  vargs.onSuccess = args.onSuccess || function(msg) {console.log(msg);};
   vargs.is_public = args.is_public || false;
   var onError = vargs.onError;
 
@@ -720,7 +720,7 @@ BBT.prototype.unsubscribe = function(args) {
   vargs.channel = args.channel;
   vargs.resource = args.resource || '*';
   vargs.onError = args.onError || BBT.warn;
-  vargs.onSuccess = args.onSuccess || function() {};
+  vargs.onSuccess = args.onSuccess || function(msg) {console.log(msg);};
 
   if(!vargs.channel) return vargs.onError('channel not specified');
   if(!(typeof vargs.channel === 'string')) return vargs.onError('Invalid format: channel must be a string');
